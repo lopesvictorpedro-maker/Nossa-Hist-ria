@@ -1,11 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
-
-// Define types for PeerJS since we're using it via CDN
-declare global {
-  interface Window {
-    Peer: any;
-  }
-}
+import Peer from 'peerjs';
 
 interface LiveSyncContextType {
   peerId: string | null;
@@ -32,23 +26,17 @@ export const LiveSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
   const [error, setError] = useState<string | null>(null);
   
-  const peerRef = useRef<any>(null);
+  const peerRef = useRef<Peer | null>(null);
   const connRef = useRef<any>(null);
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
 
   // Initialize Peer
   useEffect(() => {
-    // Only init if window.Peer exists (loaded from CDN)
-    if (!window.Peer) {
-      setError("Biblioteca de sincronização não carregada.");
-      return;
-    }
-
     // Reuse existing ID if saved, otherwise generate new
     const savedId = localStorage.getItem('my_peer_id');
     
-    // Create Peer instance
-    const peer = new window.Peer(savedId || undefined, {
+    // Create Peer instance from imported package
+    const peer = new Peer(savedId || undefined, {
       debug: 1
     });
 
@@ -66,8 +54,11 @@ export const LiveSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     peer.on('error', (err: any) => {
       console.error('Peer error:', err);
-      setError('Erro na conexão: ' + err.type);
-      setConnectionStatus('error');
+      // Ignore some harmless errors like 'peer-unavailable' if retrying
+      if (err.type !== 'peer-unavailable') {
+         setError('Erro na conexão: ' + err.type);
+         setConnectionStatus('error');
+      }
     });
 
     peerRef.current = peer;
@@ -93,14 +84,9 @@ export const LiveSyncProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setConnectionStatus('connected');
       localStorage.setItem('partner_peer_id', conn.peer);
       setError(null);
-      
-      // Initial sync: Send all my data to partner? 
-      // For simplicity, we just sync updates as they happen for now, 
-      // or we could implement a full sync handshake here.
     });
 
     conn.on('data', (data: any) => {
-      // console.log('Received data', data);
       if (data && data.key && data.value !== undefined) {
         // 1. Update Local Storage
         try {

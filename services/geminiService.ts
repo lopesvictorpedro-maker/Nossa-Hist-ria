@@ -1,10 +1,12 @@
 import { GoogleGenAI } from "@google/genai";
 
 const getAiClient = () => {
-  if (!process.env.API_KEY) {
-    throw new Error("API Key is missing");
+  // Uses Vite's native environment variable handling
+  const apiKey = import.meta.env.VITE_API_KEY;
+  if (!apiKey) {
+    console.warn("API Key is missing. Please set VITE_API_KEY in your environment.");
   }
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  return new GoogleGenAI({ apiKey: apiKey || '' });
 };
 
 /**
@@ -34,7 +36,7 @@ export const generateRomanticText = async (prompt: string, tone: string): Promis
     return response.text || "Não foi possível gerar o texto no momento.";
   } catch (error) {
     console.error("Erro ao gerar texto com Gemini:", error);
-    return "Desculpe, tive um problema ao buscar inspiração. Tente novamente.";
+    return "Desculpe, tive um problema ao buscar inspiração. Verifique sua chave de API.";
   }
 };
 
